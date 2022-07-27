@@ -43,17 +43,19 @@ class droneImage:
         # why is the sharpness of higher quality images lower???
 
     def generate_homogenous_matrix(self, scale_down=1.0):
-        self.translation[0] /= scale_down
-        self.translation[1] /= scale_down
-        self.translation[2] /= scale_down
+        # idiot! this isn't how you scale a matrix
+        # self.translation[0] /= scale_down
+        # self.translation[1] /= scale_down
+        # self.translation[2] /= scale_down
         rx = scripts.generate_transforms_json.rot_x(self.rotation[0])
         ry = scripts.generate_transforms_json.rot_y(self.rotation[1])
         rz = scripts.generate_transforms_json.rot_z(self.rotation[2])
+        sf = scripts.generate_transforms_json.scale(scale_down)
         trans_mat = np.array([[1, 0, 0, self.translation[0]],
                               [0, 1, 0, self.translation[1]],
                               [0, 0, 1, self.translation[2]],
                               [0, 0, 0, 1]])
-        self.transformation_mat = (np.identity(4) @ trans_mat @ rx @ ry @ rz)
+        self.transformation_mat = (np.identity(4) @ sf @ rx @ ry @ rz @ trans_mat)
 
     def generate_transform_matrix(self, average_position):
         pos, rot = self.translation, self.rotation
@@ -158,7 +160,7 @@ NUM_PHOTOGROUPS = 5
 def do_img_load(img, avg):
     img.load_image()
     # img.generate_transform_matrix(average_position=avg)
-    img.generate_homogenous_matrix(scale_down=50.0)
+    img.generate_homogenous_matrix(scale_down=(1.0))
     return img
 
 
@@ -237,10 +239,14 @@ def main():
     # imageGroups = scripts.generate_transforms_json.whiten_positions(imageGroups)
     # imageGroups = scripts.generate_transforms_json.normalise_translation_mat(imageGroups)
 
-    # imageGroups = scripts.generate_transforms_json.scale_to_unit_cube(imageGroups)
+    imageGroups = scripts.generate_transforms_json.scale_to_unit_cube(imageGroups)
 
-    scripts.generate_transforms_json.export_to_json(camera, imageGroups[200:350],
-                                                    "transforms.json", 1)
+    scripts.generate_transforms_json.export_to_json(camera, imageGroups,
+                                                    "transforms.json", 1, down_only=True)
+
+    plt.scatter([x.down_angle.transformation_mat[0,3] for x in imageGroups], [y.down_angle.transformation_mat[1,3] for y in imageGroups], color='b')
+    plt.show()
+
     # scripts.generate_transforms_json.show_imagegroup_locations(imageGroups)
     print("END")
 

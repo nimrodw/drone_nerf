@@ -28,6 +28,13 @@ def rot_z(rot):
                      [0, 0, 0, 1]])
 
 
+def scale(sf):
+    return np.array([[sf, 0, 0, 0],
+                     [0, sf, 0, 0],
+                     [0, 0, sf, 0],
+                     [0, 0, 0, 1]])
+
+
 # this is the method that Nvidia's instant NGP uses to calculate the sharpness of an image
 # peculiarly, lower resolution images seem to have a higher sharpness
 def variance_of_laplacian(image):
@@ -143,54 +150,56 @@ def scale_to_unit_cube(imageGroup):
     print("mins: ", mins)
     print("maxs: ", maxs)
     size = maxs - mins
+    print("size: ", size)
     centre = (mins + maxs) / 2
-    scale = np.array([[1 / size[0], 0, 0, 0],
-                      [0, 1 / size[1], 0, 0],
-                      [0, 1 / size[2], 0, 0],
+    print("centre: ", centre)
+    scale = np.array([[2 / size[0], 0, 0, 0],
+                      [0, 2 / size[1], 0, 0],
+                      [0, 0, 2 / size[2], 0],
                       [0, 0, 0, 1]])
     translate = np.array([[1, 0, 0, centre[0]],
                           [0, 1, 0, centre[1]],
                           [0, 0, 1, centre[2]],
                           [0, 0, 0, 1]])
-    before = np.empty((0, 3), int)
-    after = np.empty((0, 3), int)
+    matm = scale * translate
+    print(matm)
     for imggrp in imageGroup:
         images = imggrp.images
         for img in images:
             x, y, z = img.transformation_mat[0, 3], img.transformation_mat[1, 3], img.transformation_mat[2, 3]
-            before = np.vstack((before, np.array([x, y, z])))
-            x_hat = (x - minx) / (maxx - minx)
-            y_hat = (y - miny) / (maxy - miny)
-            z_hat = (z - minz) / (maxz - minz)
-            after = np.vstack((after, np.array([x_hat, y_hat, z_hat])))
+            pos = np.array([x, y, z, 1.0]) @ matm
             img.transformation_mat[0, 3], img.transformation_mat[1, 3], img.transformation_mat[
-                2, 3] = x_hat, y_hat, z_hat
+                2, 3] = pos[0], pos[1], pos[2]
     return imageGroup
+
 
 # convert the image group classes into a JSON that Instant NGP accepts
 # "choose_num" is a parameter the essentially chooses how many to skip
 # the function only chooses every "choose_num"th image group (set of five images)
-def export_to_json(camera, image_groups, dst_path, choose_num):
+def export_to_json(camera, image_groups, dst_path, choose_num, down_only=False):
     frames = []
     i = 0
-    for group in image_groups:
-        if i % choose_num == 0:
-            for img in group.images:
+    if not down_only:
+        for group in image_groups:
+            if i % choose_num == 0:
+                for img in group.images:
+                    frame = {
+                        "file_path": img.image_path,
+                        "sharpness": img.sharpness,
+                        "transform_matrix": img.transformation_mat.tolist()
+                    }
+                    frames.append(frame)
+            i += 1
+    else:
+        for group in image_groups:
+            if i % choose_num == 0:
                 frame = {
-                    "file_path": img.image_path,
-                    "sharpness": img.sharpness,
-                    "transform_matrix": img.transformation_mat.tolist()
+                    "file_path": group.down_angle.image_path,
+                    "sharpness": group.down_angle.sharpness,
+                    "transform_matrix": group.down_angle.transformation_mat.tolist()
                 }
                 frames.append(frame)
-        i += 1
-    # for group in image_groups:
-    #     frame = {
-    #         "file_path": group.down_angle.image_path,
-    #         "sharpness": group.down_angle.sharpness,
-    #         "transform_matrix": group.down_angle.transformation_mat.tolist()
-    #     }
-    #     frames.append(frame)
-    #     i += 1
+            i += 1
     distortion = camera.distortion
     fl = camera.focal_length
     w, h = camera.width, camera.height
