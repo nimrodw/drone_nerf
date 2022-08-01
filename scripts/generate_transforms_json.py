@@ -3,6 +3,15 @@ import cv2
 import matplotlib.pyplot as plt
 import json
 
+import scripts.generate_transforms_json
+
+
+def translate_m(translation):
+    return np.array([[1, 0, 0, translation[0]],
+                     [0, 1, 0, translation[1]],
+                     [0, 0, 1, translation[2]],
+                     [0, 0, 0, 1]])
+
 
 def rot_x(rot):
     rot = rot * (np.pi / 180.)
@@ -139,8 +148,8 @@ def scale_to_unit_cube(imageGroup):
     for imggrp in imageGroup:
         images = imggrp.images
         translations.append([i.transformation_mat for i in images])
-    translations = np.array(translations)
 
+    translations = np.array(translations)
     minx, miny, minz = np.min(translations[:, :, 0, 3]), np.min(translations[:, :, 1, 3]), np.min(
         translations[:, :, 2, 3])
     maxx, maxy, maxz = np.max(translations[:, :, 0, 3]), np.max(translations[:, :, 1, 3]), np.max(
@@ -153,9 +162,9 @@ def scale_to_unit_cube(imageGroup):
     print("size: ", size)
     centre = (mins + maxs) / 2
     print("centre: ", centre)
-    scale = np.array([[2 / size[0], 0, 0, 0],
-                      [0, 2 / size[1], 0, 0],
-                      [0, 0, 2 / size[2], 0],
+    scale = np.array([[1 / size[0], 0, 0, 0],
+                      [0, 1 / size[1], 0, 0],
+                      [0, 0, 1 / size[2], 0],
                       [0, 0, 0, 1]])
     translate = np.array([[1, 0, 0, centre[0]],
                           [0, 1, 0, centre[1]],
@@ -170,6 +179,48 @@ def scale_to_unit_cube(imageGroup):
             pos = np.array([x, y, z, 1.0]) @ matm
             img.transformation_mat[0, 3], img.transformation_mat[1, 3], img.transformation_mat[
                 2, 3] = pos[0], pos[1], pos[2]
+    return imageGroup
+
+
+def scale_to_unit_cube_2(imageGroup):
+    # unit cubise translations
+    pos = []
+    rot = []
+    for imggrp in imageGroup:
+        images = imggrp.images
+        pos.append([i.translation for i in images])
+        rot.append([i.rotation for i in images])
+
+    pos = np.asarray(pos)
+    rot = np.asarray(rot)
+    pos = pos.reshape(len(imageGroup) * 5, 3)
+    rot = rot.reshape(len(imageGroup) * 5, 3)
+
+    mins = np.min(pos, axis=0)
+    maxs = np.max(pos, axis=0)
+    print("mins: ", mins)
+    print("maxs: ", maxs)
+    size = (maxs - mins)
+    print("size: ", size)
+    centre = -((mins + maxs) / 2)
+    print("centre: ", centre)
+    scale = np.array([[1 / size[0], 0, 0, 0],
+                      [0, 1 / size[1], 0, 0],
+                      [0, 0, 1 / size[2], 0],
+                      [0, 0, 0, 1]])
+    translate = np.array([[1, 0, 0, centre[0]],
+                          [0, 1, 0, centre[1]],
+                          [0, 0, 1, centre[2]],
+                          [0, 0, 0, 1]])
+    matm = np.eye(4) @ scale @ translate
+    for imggrp in imageGroup:
+        images = imggrp.images
+        for img in images:
+            img.transformation_mat = matm @ np.array([[1.0, 0, 0, img.translation[0]],
+                                                      [0, 1.0, 0, img.translation[1]],
+                                                      [0, 0, 1.0, img.translation[2]],
+                                                      [0, 0, 0, 1.0]])
+
     return imageGroup
 
 
@@ -206,10 +257,10 @@ def export_to_json(camera, image_groups, dst_path, choose_num, down_only=False):
     dictionary = {
         "camera_angle_x": 0.86,
         "camera_angle_y": 0.59,
-        "fl_x": fl * 100,
-        "fl_y": fl * 100,
-        # "fl_x": 1625.8962760681159,# * 0.0029,
-        # "fl_y": 1627.4094371437486,# * 0.0029,
+        # "fl_x": fl * 100,
+        # "fl_y": fl * 100,
+        "fl_x": 2535.7774397566544,  # * 0.0029,
+        "fl_y": 2535.7774397566544,  # * 0.0029,
         "k1": distortion[0],
         "k2": distortion[1],
         "p1": distortion[3],

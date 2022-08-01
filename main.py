@@ -5,6 +5,8 @@ import scripts.generate_transforms_json
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import os
+from mpl_toolkits import mplot3d
 from sys import getsizeof
 
 """
@@ -35,30 +37,44 @@ class droneImage:
         self.image_id = image_id
         self.translation = translation
         self.rotation = rotation
-        self.transformation_mat = []
+        self.transformation_mat = np.eye(4)
 
     def load_image(self):
         self.image_data = cv2.imread(self.image_path)
         self.sharpness = scripts.generate_transforms_json.sharpness(self.image_data)
         # why is the sharpness of higher quality images lower???
 
-    def generate_homogenous_matrix(self, scale_down=1.0):
-        # idiot! this isn't how you scale a matrix
-        # self.translation[0] /= scale_down
-        # self.translation[1] /= scale_down
-        # self.translation[2] /= scale_down
+    def generate_homogenous_matrix(self, scale=1.0):
+        sf = scripts.generate_transforms_json.scale(scale)
+        trans_mat = scripts.generate_transforms_json.translate_m(
+            np.array([self.translation[0], self.translation[1], self.translation[2]]))
+        self.transformation_mat = sf @ trans_mat @ self.transformation_mat
+
+        # self.rotate_point()
+        # self.transformation_mat = trans_mat @ self.transformation_mat
+
+    def rotate_point(self):
+        # this function rotates a point about itself
+        # to do this, we have to move it to the origin, rotate, and then move it back
+        x, y, z = self.translation
+        centre = np.array([[1.0, 0, 0, -x],
+                           [0, 1.0, 0, -y],
+                           [0, 0, 1.0, -z],
+                           [0, 0, 0, 1.0]])
+        self.transformation_mat = centre @ self.transformation_mat
         rx = scripts.generate_transforms_json.rot_x(self.rotation[0])
         ry = scripts.generate_transforms_json.rot_y(self.rotation[1])
         rz = scripts.generate_transforms_json.rot_z(self.rotation[2])
-        sf = scripts.generate_transforms_json.scale(scale_down)
-        trans_mat = np.array([[1, 0, 0, self.translation[0]],
-                              [0, 1, 0, self.translation[1]],
-                              [0, 0, 1, self.translation[2]],
-                              [0, 0, 0, 1]])
-        self.transformation_mat = (np.identity(4) @ sf @ rx @ ry @ rz @ trans_mat)
+        self.transformation_mat = rx @ ry @ rz @ self.transformation_mat
+        self.transformation_mat = -centre @ self.transformation_mat
+
+    def scale_matrix(self, scale=1.0):
+        sf = scripts.generate_transforms_json.scale(scale)
+        self.transformation_mat = (sf @ self.transformation_mat)
 
     def generate_transform_matrix(self, average_position):
         pos, rot = self.translation, self.rotation
+
         def Rx(theta):
             return np.matrix([[1, 0, 0],
                               [0, np.cos(theta), -np.sin(theta)],
@@ -126,6 +142,10 @@ class ImageGroup:
         for img in self.images:
             print(img.image_path)
 
+    def scale_images(self, scale):
+        for img in self.images:
+            img.scale_matrix(scale)
+
     def display_images(self):
         fig = plt.figure(figsize=(12, 12))
         columns = 3
@@ -159,14 +179,12 @@ NUM_PHOTOGROUPS = 5
 
 def do_img_load(img, avg):
     img.load_image()
-    # img.generate_transform_matrix(average_position=avg)
-    img.generate_homogenous_matrix(scale_down=(1.0))
+    img.generate_homogenous_matrix(scale=1.0)
     return img
 
 
 # could make this asynchronous for each of the five photo groups
 def main():
-
     droneImages = []
     xml_path = "data/Xml/200_AT.xml"
     root = ET.parse(xml_path).getroot()
@@ -213,7 +231,7 @@ def main():
     avg = np.array([meanx, meany, meanz])
 
     pool = multiprocessing.Pool(5)
-    processes = [pool.apply_async(do_img_load, args=(image,avg,)) for image in droneImages]
+    processes = [pool.apply_async(do_img_load, args=(image, avg,)) for image in droneImages]
     droneImages = [p.get() for p in tqdm(processes)]
 
     NUM_IMAGES = int(len(droneImages) / NUM_PHOTOGROUPS)
@@ -228,27 +246,42 @@ def main():
     imageGroups = []
     for j in range(NUM_IMAGES):
         right = droneImages[j]
-        front = droneImages[1*NUM_IMAGES+j]
-        left = droneImages[2*NUM_IMAGES+j]
-        back = droneImages[3*NUM_IMAGES+j]
-        down = droneImages[4*NUM_IMAGES+j]
+        front = droneImages[1 * NUM_IMAGES + j]
+        left = droneImages[2 * NUM_IMAGES + j]
+        back = droneImages[3 * NUM_IMAGES + j]
+        down = droneImages[4 * NUM_IMAGES + j]
         imggrp = ImageGroup(front, back, left, right, down)
         imageGroups.append(imggrp)
     print("There are ", len(imageGroups), " image groups")
 
     # imageGroups = scripts.generate_transforms_json.whiten_positions(imageGroups)
     # imageGroups = scripts.generate_transforms_json.normalise_translation_mat(imageGroups)
+    fig = plt.figure(figsize=(10, 7))
+    ax = plt.axes(projection="3d")
 
-    imageGroups = scripts.generate_transforms_json.scale_to_unit_cube(imageGroups)
+    # ax.scatter3D([x.down_angle.transformation_mat[0, 3] for x in imageGroups],
+    #              [y.down_angle.transformation_mat[1, 3] for y in imageGroups], color='g')
+
+    # REMINDER - trying to do the scaling better!
+    # imageGroups = scripts.generate_transforms_json.scale_to_unit_cube(imageGroups)
 
     scripts.generate_transforms_json.export_to_json(camera, imageGroups,
                                                     "transforms.json", 1, down_only=True)
 
-    plt.scatter([x.down_angle.transformation_mat[0,3] for x in imageGroups], [y.down_angle.transformation_mat[1,3] for y in imageGroups], color='b')
+    # Creating plot
+    ax.scatter3D([x.down_angle.transformation_mat[0, 3] for x in imageGroups],
+                 [x.down_angle.transformation_mat[1, 3] for x in imageGroups],
+                 [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
+                 , color='b')
+    # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
+
+    plt.title("Drone Plots")
+
     plt.show()
 
     # scripts.generate_transforms_json.show_imagegroup_locations(imageGroups)
-    print("END")
+    print("Running NERF")
+    # os.system("./home/bertie/Documents/instant-ngp/build/testbed --scene /home/bertie/PycharmProjects/drone_nerf")
 
 
 if __name__ == '__main__':
