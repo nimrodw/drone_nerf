@@ -32,7 +32,7 @@ xs = np.array([])
 ys = np.array([])
 zs = np.array([])
 
-root = ET.parse('data/2_Amit/200M/Xml/200_AT.xml').getroot()
+root = ET.parse('../data/Xml/200_AT.xml').getroot()
 photogroups = root.find("SpatialReferenceSystems/Block/Photogroups")
 for pg in photogroups:
     pg_name = pg.find("Name").text

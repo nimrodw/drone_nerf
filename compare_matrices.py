@@ -43,21 +43,24 @@ print("XML mins: ", np.min(positions, axis=0))
 print("XML maxs: ", np.max(positions, axis=0))
 
 raw_mat = []
+raw_pos = []
 for pos in positions:
     x, y, z = pos
+    raw_pos.append([x, y, z])
     raw_mat.append(np.array([[1.0, 0, 0, x],
                              [0, 1.0, 0, y],
                              [0, 0, 1.0, z],
                              [0, 0, 0, 1.0]]))
 
 raw_mat = np.asarray(raw_mat)
+raw_pos = np.asarray(raw_pos)
 
 colmap_frames = []
 xml_frames = []
 with open('other_transforms/colmap_transform.json') as json_file:
     data = json.load(json_file)
     colmap_frames = data["frames"]
-with open('other_transforms/xml_4_scaled_transforms.json') as json_file:
+with open('transforms.json') as json_file:
     data = json.load(json_file)
     xml_frames = data["frames"]
 
@@ -78,19 +81,6 @@ for c in colmap_frames:
 for x in xml_frames:
     if x['file_path'] in filenames:
         x_.append(x['transform_matrix'])
-# print(np.asarray(x_))
-# print(np.asarray(c_))
-
-# X * ? = C
-# ? = inv(X) @ C
-tr = np.linalg.inv(x_) @ c_
-
-print(np.allclose(x_ @ tr, c_))
-mean_tr = np.mean(tr, axis=0)
-
-print(np.asarray(c_[2]))
-print(x_[2] @ mean_tr)
-
 
 xml_mat = np.array([])
 for f in xml_frames:
@@ -144,8 +134,6 @@ tr_drone = []
 test = []
 for x in xml_mat:
     n = matm @ x
-    t = mean_tr @ x
-    tr_drone.append(t)
     scaled_drone.append(n)
 for r in raw_mat:
     r = matm @ r
@@ -173,11 +161,12 @@ ax = plt.axes(projection="3d")
 
 # Creating plot
 # ax.scatter3D(tr_drone[:, 0], tr_drone[:, 1], tr_drone[:, 2], color='pink')
-ax.scatter3D(scaled_drone[:, 0], scaled_drone[:, 1], scaled_drone[:, 2], color='b')
+ax.scatter3D(raw_pos[0:25, 0], raw_pos[0:25, 1], raw_pos[0:25, 2], color='g')
+# ax.scatter3D(scaled_drone[:, 0], scaled_drone[:, 1], scaled_drone[:, 2], color='b')
 # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
-plt.xlim(-2.5, 2.5)
-plt.ylim(-2.5, 2.5)
-ax.set_zlim(-2.5, 2.5)
+# plt.xlim(-2.5, 2.5)
+# plt.ylim(-2.5, 2.5)
+# ax.set_zlim(0, 350)
 plt.title("COLMAP points vs Drone points")
 
 # show plot

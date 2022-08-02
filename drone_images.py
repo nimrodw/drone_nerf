@@ -1,13 +1,8 @@
 import numpy as np
 import cv2
-import multiprocessing
 import scripts.generate_transforms_json
 import camera as cam
 import xml.etree.ElementTree as ET
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
-
 
 
 class droneImage:
@@ -26,6 +21,11 @@ class droneImage:
     def get_pos(self):
         return self.transformation_mat[:3, 3]
 
+    def get_scale(self):
+        scale = np.linalg.norm(self.transformation_mat[0, :3]), np.linalg.norm(
+            self.transformation_mat[0, :3]), np.linalg.norm(self.transformation_mat[0, :3])
+        return scale
+
     def load_image(self):
         self.image_data = cv2.imread(self.image_path)
         self.sharpness = scripts.generate_transforms_json.sharpness(self.image_data)
@@ -36,7 +36,8 @@ class droneImage:
         # NeRF uses a coord system where Y = UP
         trans_mat = scripts.generate_transforms_json.translate_m(
             np.array([self.translation[0], self.translation[1], self.translation[2]]))
-        self.transformation_mat = sf @ trans_mat @ self.transformation_mat
+        rot_mat = scripts.generate_transforms_json.rot_m(self.rotation)
+        self.transformation_mat = sf @ rot_mat @ trans_mat @ self.transformation_mat
 
     def rotate_point(self):
         # this function rotates a point about itself
@@ -55,9 +56,11 @@ class droneImage:
     def scale_matrix(self, scale=1.0):
         sf = scripts.generate_transforms_json.scale(scale)
         self.transformation_mat = (sf @ self.transformation_mat)
+        return self.transformation_mat
 
     def generate_transform_matrix(self, average_position, sf):
         pos, rot = self.translation, self.rotation
+
         def Rx(theta):
             theta = theta * (np.pi / 180.)
             return np.matrix([[1, 0, 0],
@@ -76,8 +79,8 @@ class droneImage:
                               [np.sin(theta), np.cos(theta), 0],
                               [0, 0, 1]])
 
-        # R = Rz(rot[2]) * Ry(rot[1]) * Rx(rot[0])
-        R = Rz(0.0) * Ry(0.0) * Rx(0.0)
+        R = Rz(rot[2]) * Ry(rot[1]) * Rx(rot[0])
+        # R = Rz(0.0) * Ry(0.0) * Rx(0.0)
         xf_rot = np.eye(4)
         xf_rot[:3, :3] = R
 
@@ -102,10 +105,9 @@ class droneImage:
             [0, 0, 0, 1]])
         xf = shift_coords @ extra_xf @ xf_pos
         assert np.abs(np.linalg.det(xf) - 1.0) < 1e-4
+        # xf = self.scale_matrix(1.0 / 550.0)
         xf = xf @ xf_rot
         self.transformation_mat = xf
-        self.scale_matrix(sf)
-        # self.rotate_point()
 
 
 def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):

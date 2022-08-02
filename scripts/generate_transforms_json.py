@@ -3,14 +3,16 @@ import cv2
 import matplotlib.pyplot as plt
 import json
 
-import scripts.generate_transforms_json
-
 
 def translate_m(translation):
     return np.array([[1, 0, 0, translation[0]],
                      [0, 1, 0, translation[1]],
                      [0, 0, 1, translation[2]],
                      [0, 0, 0, 1]])
+
+
+def rot_m(rots):
+    return rot_z(rots[2]) * rot_y(rots[1]) * rot_x(rots[0])
 
 
 def rot_x(rot):
@@ -270,6 +272,7 @@ def export_to_json(camera, image_groups, dst_path, choose_num, down_only=False):
         "w": w,
         "h": h,
         "aabb_scale": 4,
+        "scale": 0.0015,
         "frames": frames
     }
     # Serializing json
