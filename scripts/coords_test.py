@@ -9,3 +9,4 @@ r_earth = 6371.00
 new_latitude  = ENU[0]  + (local_coords[1] / r_earth) * (180.0 / np.pi)
 new_longitude = ENU[1] + (local_coords[0] / r_earth) * (180.0 / np.pi) / np.cos(ENU[0] * np.pi/180.0)
 print(new_latitude, ", ", new_longitude)
+

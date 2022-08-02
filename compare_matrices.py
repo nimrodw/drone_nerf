@@ -175,7 +175,9 @@ ax = plt.axes(projection="3d")
 # ax.scatter3D(tr_drone[:, 0], tr_drone[:, 1], tr_drone[:, 2], color='pink')
 ax.scatter3D(scaled_drone[:, 0], scaled_drone[:, 1], scaled_drone[:, 2], color='b')
 # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
-
+plt.xlim(-2.5, 2.5)
+plt.ylim(-2.5, 2.5)
+ax.set_zlim(-2.5, 2.5)
 plt.title("COLMAP points vs Drone points")
 
 # show plot

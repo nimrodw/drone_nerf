@@ -2,121 +2,13 @@ import numpy as np
 import cv2
 import multiprocessing
 import scripts.generate_transforms_json
+import drone_images
 import xml.etree.ElementTree as ET
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import os
 from mpl_toolkits import mplot3d
 from sys import getsizeof
-
-"""
-This idea of this is to load all the image data into a python application
-we then can construct the JSON data file which contains the transforms metadata for the images
-
-"""
-
-
-class Camera:
-
-    def __init__(self, focal_length, principal_point, width, height, distortion):
-        self.focal_length = focal_length
-        self.principal_point = principal_point
-        self.width = width
-        self.height = height
-        self.distortion = distortion
-
-
-class droneImage:
-
-    def __init__(self, image_path, image_id, translation, rotation):
-        # load the opencv image
-        # load associated image params xyz + rot
-        self.sharpness = None
-        self.image_data = None
-        self.image_path = image_path
-        self.image_id = image_id
-        self.translation = translation
-        self.rotation = rotation
-        self.transformation_mat = np.eye(4)
-
-    def load_image(self):
-        self.image_data = cv2.imread(self.image_path)
-        self.sharpness = scripts.generate_transforms_json.sharpness(self.image_data)
-        # why is the sharpness of higher quality images lower???
-
-    def generate_homogenous_matrix(self, scale=1.0):
-        sf = scripts.generate_transforms_json.scale(scale)
-        trans_mat = scripts.generate_transforms_json.translate_m(
-            np.array([self.translation[0], self.translation[1], self.translation[2]]))
-        self.transformation_mat = sf @ trans_mat @ self.transformation_mat
-
-        # self.rotate_point()
-        # self.transformation_mat = trans_mat @ self.transformation_mat
-
-    def rotate_point(self):
-        # this function rotates a point about itself
-        # to do this, we have to move it to the origin, rotate, and then move it back
-        x, y, z = self.translation
-        centre = np.array([[1.0, 0, 0, -x],
-                           [0, 1.0, 0, -y],
-                           [0, 0, 1.0, -z],
-                           [0, 0, 0, 1.0]])
-        self.transformation_mat = centre @ self.transformation_mat
-        rx = scripts.generate_transforms_json.rot_x(self.rotation[0])
-        ry = scripts.generate_transforms_json.rot_y(self.rotation[1])
-        rz = scripts.generate_transforms_json.rot_z(self.rotation[2])
-        self.transformation_mat = rx @ ry @ rz @ self.transformation_mat
-        self.transformation_mat = -centre @ self.transformation_mat
-
-    def scale_matrix(self, scale=1.0):
-        sf = scripts.generate_transforms_json.scale(scale)
-        self.transformation_mat = (sf @ self.transformation_mat)
-
-    def generate_transform_matrix(self, average_position):
-        pos, rot = self.translation, self.rotation
-
-        def Rx(theta):
-            return np.matrix([[1, 0, 0],
-                              [0, np.cos(theta), -np.sin(theta)],
-                              [0, np.sin(theta), np.cos(theta)]])
-
-        def Ry(theta):
-            return np.matrix([[np.cos(theta), 0, np.sin(theta)],
-                              [0, 1, 0],
-                              [-np.sin(theta), 0, np.cos(theta)]])
-
-        def Rz(theta):
-            return np.matrix([[np.cos(theta), -np.sin(theta), 0],
-                              [np.sin(theta), np.cos(theta), 0],
-                              [0, 0, 1]])
-
-        R = Rz(rot[2]) * Ry(rot[1]) * Rx(rot[0])
-        xf_rot = np.eye(4)
-        xf_rot[:3, :3] = R
-
-        xf_pos = np.eye(4)
-        xf_pos[:3, 3] = pos - average_position
-
-        # barbershop_mirros_hd_dense:
-        # - camera plane is y+z plane, meaning: constant x-values
-        # - cameras look to +x
-
-        # Don't ask me...
-        extra_xf = np.matrix([
-            [-1, 0, 0, 0],
-            [0, 0, 1, 0],
-            [0, 1, 0, 0],
-            [0, 0, 0, 1]])
-        # NerF will cycle forward, so lets cycle backward.
-        shift_coords = np.matrix([
-            [0, 0, 1, 0],
-            [1, 0, 0, 0],
-            [0, 1, 0, 0],
-            [0, 0, 0, 1]])
-        xf = shift_coords @ extra_xf @ xf_pos
-        assert np.abs(np.linalg.det(xf) - 1.0) < 1e-4
-        xf = xf @ xf_rot
-        self.transformation_mat = xf
 
 
 # Class ImageGroup
@@ -182,48 +74,9 @@ def do_img_load(img, avg):
     img.generate_homogenous_matrix(scale=1.0)
     return img
 
-
 # could make this asynchronous for each of the five photo groups
 def main():
-    droneImages = []
-    xml_path = "data/Xml/200_AT.xml"
-    root = ET.parse(xml_path).getroot()
-    photogroups = root.find("SpatialReferenceSystems/Block/Photogroups")
-
-    positions = []
-
-    print("Loading Image Data from XML")
-    camera_unset = True
-    for pg in photogroups:
-        if camera_unset:
-            fl = float(pg.find('FocalLength').text)
-            principal_point = [float(pg.find('PrincipalPoint/x').text), float(pg.find('PrincipalPoint/y').text)]
-            distortion = [float(pg.find('Distortion/K1').text),
-                          float(pg.find('Distortion/K2').text),
-                          float(pg.find('Distortion/K3').text),
-                          float(pg.find('Distortion/P1').text),
-                          float(pg.find('Distortion/P2').text)]
-            camera = Camera(fl, principal_point, 1500.0, 1000.0, distortion)
-            camera_unset = False
-
-        pg_name = pg.find("Name").text
-        photos = pg.findall("Photo")
-        for photo in photos:
-            id = int(photo.find('Id').text)
-            image_path = photo.find('ImagePath').text
-            image_path = image_path.replace("LMY_PREFIX_PATH", "data/downsampled/_025")
-            center = photo.find("Pose/Center")
-            x = float(center.find('x').text)
-            y = float(center.find('y').text)
-            z = float(center.find('z').text)
-            positions.append([x, y, z])
-
-            rotation = photo.find("Pose/Rotation")
-            k = float(rotation.find('Omega').text)
-            phi = float(rotation.find('Phi').text)
-            omega = float(rotation.find('Kappa').text)
-            image = droneImage(image_path, id, [x, y, z], [k, phi, omega])
-            droneImages.append(image)
+    droneImages, cam, positions, rotations = drone_images.produce_drone_image_list("data/Xml/200_AT.xml")
     print("Loading ", str(len(droneImages)), " images")
     positions = np.asarray(positions)
     meanx, meany, meanz = np.min(positions[:, 0]), np.min(positions[:, 1]), np.min(
@@ -256,27 +109,43 @@ def main():
 
     # imageGroups = scripts.generate_transforms_json.whiten_positions(imageGroups)
     # imageGroups = scripts.generate_transforms_json.normalise_translation_mat(imageGroups)
-    fig = plt.figure(figsize=(10, 7))
-    ax = plt.axes(projection="3d")
 
-    # ax.scatter3D([x.down_angle.transformation_mat[0, 3] for x in imageGroups],
-    #              [y.down_angle.transformation_mat[1, 3] for y in imageGroups], color='g')
+
 
     # REMINDER - trying to do the scaling better!
     # imageGroups = scripts.generate_transforms_json.scale_to_unit_cube(imageGroups)
+    #
+    for grp in imageGroups:
+        for img in grp.images:
+            img.generate_transform_matrix(avg, 1./760.)
 
+    # [x.down_angle.rotate_point() for x in imageGroups]
+    for x in imageGroups:
+        print(x.down_angle.rotation)
+
+    # def plot_drone_points(imageGroup):
+    #     pos = [x.down_angle.get_pos() for x in imageGroup]
+    #     rot = [[1, 0, 0] for x in imageGroup]
+    #     rot = np.asarray(rot)
+    #     ax = plt.figure().add_subplot(projection='3d')
+    #     ax.quiver(pos[0], pos[1], pos[2], rot[:, 0], rot[:, 1], rot[:, 2], normalize=True)
+    #     plt.show()
+    # plot_drone_points(imageGroups)
     scripts.generate_transforms_json.export_to_json(camera, imageGroups,
                                                     "transforms.json", 1, down_only=True)
 
+    fig = plt.figure(figsize=(10, 7))
+    ax = plt.axes(projection="3d")
     # Creating plot
     ax.scatter3D([x.down_angle.transformation_mat[0, 3] for x in imageGroups],
                  [x.down_angle.transformation_mat[1, 3] for x in imageGroups],
-                 [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
-                 , color='b')
+                 [x.down_angle.transformation_mat[2, 3] for x in imageGroups], color='b')
     # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
 
+    plt.xlim(-2.5, 2.5)
+    plt.ylim(-2.5, 2.5)
+    ax.set_zlim(-2.5, 2.5)
     plt.title("Drone Plots")
-
     plt.show()
 
     # scripts.generate_transforms_json.show_imagegroup_locations(imageGroups)
