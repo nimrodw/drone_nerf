@@ -39,7 +39,9 @@ class droneImage:
         rot_mat = scripts.generate_transforms_json.rot_m(self.rotation)
         self.transformation_mat = sf @ rot_mat @ trans_mat @ self.transformation_mat
 
-    def rotate_point(self):
+    def rotate_point(self, rotations):
+        if rotations is None:
+            rotations = self.rotation
         # this function rotates a point about itself
         # to do this, we have to move it to the origin, rotate, and then move it back
         centre = np.array([[1.0, 0, 0, -self.transformation_mat[0, 3]],
@@ -47,9 +49,9 @@ class droneImage:
                            [0, 0, 1.0, -self.transformation_mat[2, 3]],
                            [0, 0, 0, 1.0]])
         self.transformation_mat = centre @ self.transformation_mat
-        rx = scripts.generate_transforms_json.rot_x(self.rotation[0])
-        ry = scripts.generate_transforms_json.rot_y(self.rotation[1])
-        rz = scripts.generate_transforms_json.rot_z(self.rotation[2])
+        rx = scripts.generate_transforms_json.rot_x(rotations[0])
+        ry = scripts.generate_transforms_json.rot_y(rotations[1])
+        rz = scripts.generate_transforms_json.rot_z(rotations[2])
         self.transformation_mat = rx @ ry @ rz @ self.transformation_mat
         self.transformation_mat = -centre @ self.transformation_mat
 
@@ -106,7 +108,7 @@ class droneImage:
         xf = shift_coords @ extra_xf @ xf_pos
         assert np.abs(np.linalg.det(xf) - 1.0) < 1e-4
         # xf = self.scale_matrix(1.0 / 550.0)
-        xf = xf @ xf_rot
+        xf = xf # @ xf_rot
         self.transformation_mat = xf
 
 

@@ -56,7 +56,8 @@ def main():
     centre = []
     for grp in imageGroups:
         for img in grp.images:
-            img.generate_transform_matrix(avg, 1.0)
+            # don't rotate twice!!
+            # img.generate_transform_matrix(avg, 1.0)
             p = img.get_pos()
             centre.append(p)
     centre = np.asarray(centre)
@@ -64,6 +65,8 @@ def main():
     print("Centre: ", centre)
     centre = centre.reshape(3,)
     print(imageGroups[80].down_angle.transformation_mat)
+    positions = []
+    # centre the mesh at 0, 0, 0
     for grp in imageGroups:
         for img in grp.images:
             translation = np.matrix([[1.0, 0, 0, -centre[0]],
@@ -71,13 +74,29 @@ def main():
                                      [0, 0, 1.0, -centre[2]],
                                      [0, 0, 0, 1.0]])
             img.transformation_mat = translation @ img.transformation_mat
+            # img.rotate_point(np.asarray([90.0, 0, 0]))
+            positions.append(img.get_pos())
+    positions = np.asarray(positions)
+    meanx, meany, meanz = np.min(positions[:, 0]), np.min(positions[:, 1]), np.min(
+        positions[:, 2])
+    avg = np.array([meanx, meany, meanz])
+    mins = np.min(positions, axis=0)
+    maxs = np.max(positions, axis=0)
+    print("Raw Max: ", maxs)
+    print("Raw Min: ", mins)
+    print("Raw avg: ", avg)
     print(imageGroups[80].down_angle.transformation_mat)
+    scale_factor = 0.0015
     scripts.generate_transforms_json.export_to_json(cam, imageGroups,
-                                                    "transforms.json", 5, down_only=True)
+                                                    "transforms.json", 1, scale=scale_factor, down_only=True)
 
     fig = plt.figure(figsize=(10, 7))
     ax = plt.axes(projection="3d")
     # Creating plot
+    for grp in imageGroups:
+        for img in grp.images:
+            img.scale_matrix(scale_factor)
+
     ax.scatter3D([x.down_angle.transformation_mat[0, 3] for x in imageGroups],
                  [x.down_angle.transformation_mat[1, 3] for x in imageGroups],
                  [x.down_angle.transformation_mat[2, 3] for x in imageGroups], color='b')

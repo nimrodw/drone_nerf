@@ -222,14 +222,13 @@ def scale_to_unit_cube_2(imageGroup):
                                                       [0, 1.0, 0, img.translation[1]],
                                                       [0, 0, 1.0, img.translation[2]],
                                                       [0, 0, 0, 1.0]])
-
     return imageGroup
 
 
 # convert the image group classes into a JSON that Instant NGP accepts
 # "choose_num" is a parameter the essentially chooses how many to skip
 # the function only chooses every "choose_num"th image group (set of five images)
-def export_to_json(camera, image_groups, dst_path, choose_num, down_only=False):
+def export_to_json(camera, image_groups, dst_path, choose_num, scale=0.002, down_only=False):
     frames = []
     i = 0
     if not down_only:
@@ -272,7 +271,7 @@ def export_to_json(camera, image_groups, dst_path, choose_num, down_only=False):
         "w": w,
         "h": h,
         "aabb_scale": 4,
-        "scale": 0.0015,
+        "scale": scale,
         "frames": frames
     }
     # Serializing json
