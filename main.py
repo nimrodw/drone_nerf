@@ -33,7 +33,7 @@ def main():
     print("Raw avg: ", avg)
     # loading the images takes a long time
     # let's speed it up by splitting it into multiple processes
-    pool = multiprocessing.Pool(10)
+    pool = multiprocessing.Pool(processes=16)
     processes = [pool.apply_async(do_img_load, args=(image, avg,)) for image in droneImages]
     droneImages = [p.get() for p in tqdm(processes)]
 
@@ -74,7 +74,6 @@ def main():
                                      [0, 0, 1.0, -centre[2]],
                                      [0, 0, 0, 1.0]])
             img.transformation_mat = translation @ img.transformation_mat
-            # img.rotate_point(np.asarray([90.0, 0, 0]))
             positions.append(img.get_pos())
     positions = np.asarray(positions)
     meanx, meany, meanz = np.min(positions[:, 0]), np.min(positions[:, 1]), np.min(
@@ -86,7 +85,7 @@ def main():
     print("Raw Min: ", mins)
     print("Raw avg: ", avg)
     print(imageGroups[80].down_angle.transformation_mat)
-    scale_factor = 0.0015
+    scale_factor = 0.001
     scripts.generate_transforms_json.export_to_json(cam, imageGroups,
                                                     "transforms.json", 1, scale=scale_factor, down_only=True)
 
@@ -97,14 +96,22 @@ def main():
         for img in grp.images:
             img.scale_matrix(scale_factor)
 
-    ax.scatter3D([x.down_angle.transformation_mat[0, 3] for x in imageGroups],
-                 [x.down_angle.transformation_mat[1, 3] for x in imageGroups],
-                 [x.down_angle.transformation_mat[2, 3] for x in imageGroups], color='b')
+    xs = [x.down_angle.transformation_mat[0, 3] for x in imageGroups]
+    ys = [x.down_angle.transformation_mat[1, 3] for x in imageGroups]
+    zs = [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
+    ax.scatter3D(xs[:20], ys[:20], ys[:20], color='b')
     # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
+    i = 0
+    for grp in imageGroups:
+        print(grp.down_angle.image_path, i)
+        ax.text(xs[i], ys[i], zs[i], grp.down_angle.image_path, (1,0,0))
+        i += 1
+        if i > 20:
+            break
 
     # plt.xlim(-2.5, 2.5)
     # plt.ylim(-2.5, 2.5)
-    # ax.set_zlim(-2.5, 2.5)
+    ax.set_zlim(-1.5, 1.5)
     plt.title("Drone Plots")
     plt.show()
 

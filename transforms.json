@@ -12,7 +12,7 @@
     "w": 1500.0,
     "h": 1000.0,
     "aabb_scale": 4,
-    "scale": 0.0010,
+    "scale": 0.001,
     "frames": [
         {
             "file_path": "data/downsampled/_025/4/4_00001.JPG",
