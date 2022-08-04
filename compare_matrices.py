@@ -57,7 +57,7 @@ raw_pos = np.asarray(raw_pos)
 
 colmap_frames = []
 xml_frames = []
-with open('other_transforms/colmap_transform.json') as json_file:
+with open('other_transforms/colmap_transform1.json') as json_file:
     data = json.load(json_file)
     colmap_frames = data["frames"]
 with open('transforms.json') as json_file:
@@ -161,9 +161,9 @@ ax = plt.axes(projection="3d")
 
 # Creating plot
 # ax.scatter3D(tr_drone[:, 0], tr_drone[:, 1], tr_drone[:, 2], color='pink')
-ax.scatter3D(raw_pos[0:25, 0], raw_pos[0:25, 1], raw_pos[0:25, 2], color='g')
+# ax.scatter3D(raw_pos[:, 0], raw_pos[:, 1], raw_pos[:, 2], color='g')
 # ax.scatter3D(scaled_drone[:, 0], scaled_drone[:, 1], scaled_drone[:, 2], color='b')
-# ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
+ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
 # plt.xlim(-2.5, 2.5)
 # plt.ylim(-2.5, 2.5)
 # ax.set_zlim(0, 350)

@@ -32,12 +32,14 @@ class droneImage:
         # why is the sharpness of higher quality images lower???
 
     def generate_homogenous_matrix(self, scale=1.0):
-        sf = scripts.generate_transforms_json.scale(scale)
         # NeRF uses a coord system where Y = UP
+        self.rotate_point(self.rotation)
+        sf = scripts.generate_transforms_json.scale(scale)
         trans_mat = scripts.generate_transforms_json.translate_m(
             np.array([self.translation[0], self.translation[1], self.translation[2]]))
         rot_mat = scripts.generate_transforms_json.rot_m(self.rotation)
-        self.transformation_mat = sf @ rot_mat @ trans_mat @ self.transformation_mat
+        #sf @ rot_mat @
+        self.transformation_mat = trans_mat @ self.transformation_mat
 
     def rotate_point(self, rotations):
         if rotations is None:
@@ -48,12 +50,13 @@ class droneImage:
                            [0, 1.0, 0, -self.transformation_mat[1, 3]],
                            [0, 0, 1.0, -self.transformation_mat[2, 3]],
                            [0, 0, 0, 1.0]])
-        self.transformation_mat = centre @ self.transformation_mat
+        # self.transformation_mat = centre @ self.transformation_mat
         rx = scripts.generate_transforms_json.rot_x(rotations[0])
         ry = scripts.generate_transforms_json.rot_y(rotations[1])
         rz = scripts.generate_transforms_json.rot_z(rotations[2])
-        self.transformation_mat = rx @ ry @ rz @ self.transformation_mat
-        self.transformation_mat = -centre @ self.transformation_mat
+        self.transformation_mat = rx @ ry @ rz @ np.eye(4)
+        # self.transformation_mat = rx @ ry @ rz @ self.transformation_mat
+        # self.transformation_mat = -centre @ self.transformation_mat
 
     def scale_matrix(self, scale=1.0):
         sf = scripts.generate_transforms_json.scale(scale)

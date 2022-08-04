@@ -63,7 +63,7 @@ def main():
     centre = np.asarray(centre)
     centre = np.mean(centre, axis=0)
     print("Centre: ", centre)
-    centre = centre.reshape(3,)
+    centre = centre.reshape(3, )
     print(imageGroups[80].down_angle.transformation_mat)
     positions = []
     # centre the mesh at 0, 0, 0
@@ -76,7 +76,7 @@ def main():
             img.transformation_mat = translation @ img.transformation_mat
             positions.append(img.get_pos())
     positions = np.asarray(positions)
-    meanx, meany, meanz = np.min(positions[:, 0]), np.min(positions[:, 1]), np.min(
+    meanx, meany, meanz = np.mean(positions[:, 0]), np.mean(positions[:, 1]), np.mean(
         positions[:, 2])
     avg = np.array([meanx, meany, meanz])
     mins = np.min(positions, axis=0)
@@ -85,8 +85,9 @@ def main():
     print("Raw Min: ", mins)
     print("Raw avg: ", avg)
     print(imageGroups[80].down_angle.transformation_mat)
-    scale_factor = 0.001
-    scripts.generate_transforms_json.export_to_json(cam, imageGroups,
+    scale_factor = 0.0015
+    image_groups_out = imageGroups
+    scripts.generate_transforms_json.export_to_json(cam, image_groups_out,
                                                     "transforms.json", 1, scale=scale_factor, down_only=True)
 
     fig = plt.figure(figsize=(10, 7))
@@ -96,22 +97,33 @@ def main():
         for img in grp.images:
             img.scale_matrix(scale_factor)
 
-    xs = [x.down_angle.transformation_mat[0, 3] for x in imageGroups]
-    ys = [x.down_angle.transformation_mat[1, 3] for x in imageGroups]
-    zs = [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
-    ax.scatter3D(xs[:20], ys[:20], ys[:20], color='b')
+    xs = [x.down_angle.transformation_mat[0, 3] for x in image_groups_out]
+    ys = [x.down_angle.transformation_mat[1, 3] for x in image_groups_out]
+    zs = [x.down_angle.transformation_mat[2, 3] for x in image_groups_out]
+
+    xs_front = [x.front_angle.transformation_mat[0, 3] for x in image_groups_out]
+    ys_front = [x.front_angle.transformation_mat[1, 3] for x in image_groups_out]
+    zs_front = [x.front_angle.transformation_mat[2, 3] for x in image_groups_out]
+    # for grp in imageGroups:
+    #     for img in grp.images:
+    #         xs.append(img.transformation_mat[0, 3])
+    #         ys.append(img.transformation_mat[1, 3])
+    #         zs.append(img.transformation_mat[2, 3])
+    print("Creating 3D scatter graph from ", len(xs), "points")
+    ax.scatter3D(xs, ys, zs, color='b')
+    ax.scatter3D(xs_front, ys_front, zs_front, color='g')
     # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
     i = 0
-    for grp in imageGroups:
-        print(grp.down_angle.image_path, i)
-        ax.text(xs[i], ys[i], zs[i], grp.down_angle.image_path, (1,0,0))
-        i += 1
-        if i > 20:
-            break
+    # for grp in imageGroups:
+    #     print(grp.down_angle.image_path, i)
+    #     ax.text(xs[i], ys[i], zs[i], grp.down_angle.image_path[-5:], (1,0,0))
+    #     i += 1
+    #     if i > 20:
+    #         break
 
     # plt.xlim(-2.5, 2.5)
     # plt.ylim(-2.5, 2.5)
-    ax.set_zlim(-1.5, 1.5)
+    # ax.set_zlim(-1.5, 1.5)
     plt.title("Drone Plots")
     plt.show()
 
