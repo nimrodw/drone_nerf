@@ -51,7 +51,7 @@ for pg in photogroups:
 
 label = np.arange(1,len(xs)+1, 1)
 fig, ax = plt.subplots()
-#this is a comment
+
 horiz = np.linspace(int(np.min(xs)), int(np.max(xs)), 20)
 verts = np.linspace(int(np.min(ys))-1, int(np.max(ys))+1, 20)
 ax.set_xticks(horiz)
