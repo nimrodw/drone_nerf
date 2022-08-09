@@ -3,6 +3,12 @@ import cv2
 import scripts.generate_transforms_json
 import camera as cam
 import xml.etree.ElementTree as ET
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, PathPatch
+from matplotlib.patches import Circle, PathPatch
+from matplotlib.text import TextPath
+from matplotlib.transforms import Affine2D
+import mpl_toolkits.mplot3d.art3d as art3d
 
 
 class droneImage:
@@ -21,6 +27,9 @@ class droneImage:
     def get_pos(self):
         return self.transformation_mat[:3, 3]
 
+    def get_rot(self):
+        return self.rotation
+
     def get_scale(self):
         scale = np.linalg.norm(self.transformation_mat[0, :3]), np.linalg.norm(
             self.transformation_mat[0, :3]), np.linalg.norm(self.transformation_mat[0, :3])
@@ -38,7 +47,7 @@ class droneImage:
         trans_mat = scripts.generate_transforms_json.translate_m(
             np.array([self.translation[0], self.translation[1], self.translation[2]]))
         rot_mat = scripts.generate_transforms_json.rot_m(self.rotation)
-        #sf @ rot_mat @
+        # sf @ rot_mat @
         self.transformation_mat = trans_mat @ self.transformation_mat
 
     def rotate_point(self, rotations):
@@ -62,6 +71,18 @@ class droneImage:
         sf = scripts.generate_transforms_json.scale(scale)
         self.transformation_mat = (sf @ self.transformation_mat)
         return self.transformation_mat
+
+    def get_image_vector(self):
+        t = 300
+        # equation of a circle: we need x,y,z and radius
+        # cast a ray from the camera - r(t) = o + t*d (ray equals origin + length*vector)
+        # x=x0+ta, y=y0+tb, z=z0+tc
+        xc, yc, zc = self.get_pos()  # drone_image.get_pos()
+        w, phi, k = self.get_rot()  # drone_image.get_rot()
+        d = np.array([w, phi, k])
+        d_hat = d / np.linalg.norm(d)
+        d_hat = t * d_hat  # ray
+        return d_hat
 
     def generate_transform_matrix(self, average_position, sf):
         pos, rot = self.translation, self.rotation
@@ -111,7 +132,7 @@ class droneImage:
         xf = shift_coords @ extra_xf @ xf_pos
         assert np.abs(np.linalg.det(xf) - 1.0) < 1e-4
         # xf = self.scale_matrix(1.0 / 550.0)
-        xf = xf # @ xf_rot
+        xf = xf  # @ xf_rot
         self.transformation_mat = xf
 
 

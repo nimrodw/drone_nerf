@@ -13,7 +13,7 @@ NUM_PHOTOGROUPS = 5
 
 # load the images from the data and create the matrices
 def do_img_load(img, avg):
-    img.load_image()
+    # img.load_image()
     img.generate_homogenous_matrix(scale=1.0)
     return img
 
@@ -53,78 +53,70 @@ def main():
         imageGroups.append(imggrp)
     print("There are ", len(imageGroups), " image groups")
 
-    centre = []
-    for grp in imageGroups:
-        for img in grp.images:
-            # don't rotate twice!!
-            # img.generate_transform_matrix(avg, 1.0)
-            p = img.get_pos()
-            centre.append(p)
-    centre = np.asarray(centre)
-    centre = np.mean(centre, axis=0)
+    # calculate the size of the photo array
+    size = (maxs - mins)
+    centre = ((mins + maxs) / 2)
+
+    # plot the centre of the photo array at the centre of the graph
+    xspan = (centre[0] - (size[0]/1.5), centre[0] + (size[0]/1.5))
+    yspan = (centre[1] - (size[1]/1.5), centre[1] + (size[1]/1.5))
+
     print("Centre: ", centre)
-    centre = centre.reshape(3, )
-    print(imageGroups[80].down_angle.transformation_mat)
-    positions = []
-    # centre the mesh at 0, 0, 0
-    for grp in imageGroups:
-        for img in grp.images:
-            translation = np.matrix([[1.0, 0, 0, -centre[0]],
-                                     [0, 1.0, 0, -centre[1]],
-                                     [0, 0, 1.0, -centre[2]],
-                                     [0, 0, 0, 1.0]])
-            img.transformation_mat = translation @ img.transformation_mat
-            positions.append(img.get_pos())
-    positions = np.asarray(positions)
-    meanx, meany, meanz = np.mean(positions[:, 0]), np.mean(positions[:, 1]), np.mean(
-        positions[:, 2])
-    avg = np.array([meanx, meany, meanz])
-    mins = np.min(positions, axis=0)
-    maxs = np.max(positions, axis=0)
-    print("Raw Max: ", maxs)
-    print("Raw Min: ", mins)
-    print("Raw avg: ", avg)
-    print(imageGroups[80].down_angle.transformation_mat)
-    scale_factor = 0.0015
-    image_groups_out = imageGroups
-    scripts.generate_transforms_json.export_to_json(cam, image_groups_out,
-                                                    "transforms.json", 1, scale=scale_factor, down_only=True)
+    print("Size: ", size)
+    print("Xspan: ", xspan)
+    print("yspan: ", yspan)
 
     fig = plt.figure(figsize=(10, 7))
-    ax = plt.axes(projection="3d")
+    ax = plt.axes()
     # Creating plot
-    for grp in imageGroups:
-        for img in grp.images:
-            img.scale_matrix(scale_factor)
 
-    xs = [x.down_angle.transformation_mat[0, 3] for x in image_groups_out]
-    ys = [x.down_angle.transformation_mat[1, 3] for x in image_groups_out]
-    zs = [x.down_angle.transformation_mat[2, 3] for x in image_groups_out]
+    xs = [x.down_angle.transformation_mat[0, 3] for x in imageGroups]
+    ys = [x.down_angle.transformation_mat[1, 3] for x in imageGroups]
+    zs = [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
 
-    xs_front = [x.front_angle.transformation_mat[0, 3] for x in image_groups_out]
-    ys_front = [x.front_angle.transformation_mat[1, 3] for x in image_groups_out]
-    zs_front = [x.front_angle.transformation_mat[2, 3] for x in image_groups_out]
-    # for grp in imageGroups:
-    #     for img in grp.images:
-    #         xs.append(img.transformation_mat[0, 3])
-    #         ys.append(img.transformation_mat[1, 3])
-    #         zs.append(img.transformation_mat[2, 3])
+    point_of_interest = (0, 0)
+    circle1 = plt.Circle(point_of_interest, radius=50.0, color='r', fill=False)
+
     print("Creating 3D scatter graph from ", len(xs), "points")
-    ax.scatter3D(xs, ys, zs, color='b')
-    ax.scatter3D(xs_front, ys_front, zs_front, color='g')
-    # ax.scatter3D(colmap_mat[:, 0], colmap_mat[:, 1], colmap_mat[:, 2], color='r')
-    i = 0
-    # for grp in imageGroups:
-    #     print(grp.down_angle.image_path, i)
-    #     ax.text(xs[i], ys[i], zs[i], grp.down_angle.image_path[-5:], (1,0,0))
-    #     i += 1
-    #     if i > 20:
-    #         break
+    ax.scatter(xs, ys, color='b')
 
-    # plt.xlim(-2.5, 2.5)
-    # plt.ylim(-2.5, 2.5)
+    ax.add_patch(circle1)
+
+    plt.xlim(xspan)
+    plt.ylim(yspan)
     # ax.set_zlim(-1.5, 1.5)
     plt.title("Drone Plots")
+    # plt.show()
+
+    x0s = []
+    y0s = []
+    z0s = []
+    ds = []
+    ii = 0
+    for grp in imageGroups:
+        for image in grp.images:
+            if ii % 7 == 0:
+                x, y, z = image.get_pos()
+                x0s.append(x)
+                y0s.append(y)
+                z0s.append(z)
+                d = image.get_image_vector()
+                ds.append(d)
+            ii += 1
+
+    print(np.asarray(ds).shape)
+    ds = np.asarray(ds)
+    print(len(x0s))
+    print(len(ds))
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.quiver(x0s, y0s, z0s, ds[:, 0], ds[:, 1], ds[:, 2])
+    # p = plt.Circle((0, 0), 100.0, fill=False)
+    # ax.add_patch(p)
+    # art3d.pathpatch_2d_to_3d(p, z=0, zdir="z")
+    plt.xlim(-400, 400)
+    plt.ylim(-400, 400)
+    ax.set_zlim(-10, 400)
     plt.show()
 
 

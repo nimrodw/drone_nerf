@@ -52,12 +52,19 @@ for pg in photogroups:
 label = np.arange(1,len(xs)+1, 1)
 fig, ax = plt.subplots()
 
+
 horiz = np.linspace(int(np.min(xs)), int(np.max(xs)), 20)
 verts = np.linspace(int(np.min(ys))-1, int(np.max(ys))+1, 20)
 ax.set_xticks(horiz)
 ax.set_yticks(verts)
 for i, txt in enumerate(label):
     ax.annotate(txt, (xs[i], ys[i]))
+circle1 = plt.Circle((0, 0), 50.0, color='r', fill=False)
+
+
 plt.plot(xs, ys, 'r+')
+ax.add_patch(circle1)
+plt.xlim(-250, 250)
+plt.ylim(-250, 250)
 fig.suptitle('Camera Positions of Photos (Photogroup 0)', fontweight ="bold")
 plt.show()
