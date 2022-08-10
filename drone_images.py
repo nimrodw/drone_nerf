@@ -21,7 +21,7 @@ class droneImage:
         self.image_path = image_path
         self.image_id = image_id
         self.translation = translation
-        self.rotation = rotation
+        self.rotation = rotation  # k, phi, w
         self.transformation_mat = np.eye(4)
 
     def get_pos(self):
@@ -42,7 +42,6 @@ class droneImage:
 
     def generate_homogenous_matrix(self, scale=1.0):
         # NeRF uses a coord system where Y = UP
-        self.rotate_point(self.rotation)
         sf = scripts.generate_transforms_json.scale(scale)
         trans_mat = scripts.generate_transforms_json.translate_m(
             np.array([self.translation[0], self.translation[1], self.translation[2]]))
@@ -50,38 +49,41 @@ class droneImage:
         # sf @ rot_mat @
         self.transformation_mat = trans_mat @ self.transformation_mat
 
-    def rotate_point(self, rotations):
-        if rotations is None:
-            rotations = self.rotation
-        # this function rotates a point about itself
-        # to do this, we have to move it to the origin, rotate, and then move it back
-        centre = np.array([[1.0, 0, 0, -self.transformation_mat[0, 3]],
-                           [0, 1.0, 0, -self.transformation_mat[1, 3]],
-                           [0, 0, 1.0, -self.transformation_mat[2, 3]],
-                           [0, 0, 0, 1.0]])
-        # self.transformation_mat = centre @ self.transformation_mat
-        rx = scripts.generate_transforms_json.rot_x(rotations[0])
-        ry = scripts.generate_transforms_json.rot_y(rotations[1])
-        rz = scripts.generate_transforms_json.rot_z(rotations[2])
-        self.transformation_mat = rx @ ry @ rz @ np.eye(4)
-        # self.transformation_mat = rx @ ry @ rz @ self.transformation_mat
-        # self.transformation_mat = -centre @ self.transformation_mat
-
     def scale_matrix(self, scale=1.0):
         sf = scripts.generate_transforms_json.scale(scale)
         self.transformation_mat = (sf @ self.transformation_mat)
         return self.transformation_mat
 
     def get_image_vector(self):
-        t = 300
+        t = 5
         # equation of a circle: we need x,y,z and radius
         # cast a ray from the camera - r(t) = o + t*d (ray equals origin + length*vector)
         # x=x0+ta, y=y0+tb, z=z0+tc
-        xc, yc, zc = self.get_pos()  # drone_image.get_pos()
-        w, phi, k = self.get_rot()  # drone_image.get_rot()
-        d = np.array([w, phi, k])
+        o = self.get_pos()
+        o = np.array([[1.0, 0, 0, o[0]],
+                      [0, 1.0, 0, o[1]],
+                      [0, 0, 1.0, o[2]],
+                      [0, 0, 0, 1.0]])
+        k, phi, w = self.get_rot()
+        rot_x = scripts.generate_transforms_json.rot_x(k)
+        rot_y = scripts.generate_transforms_json.rot_y(phi)
+        rot_z = scripts.generate_transforms_json.rot_z(w)
+        # w = w * (np.pi / 180.)
+        # phi = phi * (np.pi / 180.)
+        # k = k * (np.pi / 180.)
+        # rot_x = np.array([[1, 0, 0],
+        #                   [0, np.cos(w), -np.sin(w)],
+        #                   [0, np.sin(w), np.cos(w)]])
+        # rot_y = np.array([[np.cos(phi), 0, np.sin(phi)],
+        #                   [0, 1, 0],
+        #                   [-np.sin(phi), 0, np.cos(phi)]])
+        # rot_z = np.array([[np.cos(k), -np.sin(k), 0],
+        #                   [np.sin(k), np.cos(k), 0],
+        #                   [0, 0, 1]])
+        rot_m = rot_x @ rot_y @ rot_z
+        d = rot_m
         d_hat = d / np.linalg.norm(d)
-        d_hat = t * d_hat  # ray
+        d_hat = o + (t * d_hat)  # ray
         return d_hat
 
     def generate_transform_matrix(self, average_position, sf):
@@ -173,9 +175,9 @@ def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):
             positions.append([x, y, z])
 
             rotation = photo.find("Pose/Rotation")
-            k = float(rotation.find('Omega').text)
+            omega = float(rotation.find('Omega').text)
             phi = float(rotation.find('Phi').text)
-            omega = float(rotation.find('Kappa').text)
+            k = float(rotation.find('Kappa').text)
             rotations.append([k, phi, omega])
             rots.append([k, phi, omega])
             image = droneImage(image_path, id, [x, y, z], [k, phi, omega])

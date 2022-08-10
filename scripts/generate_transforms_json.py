@@ -39,6 +39,13 @@ def rot_z(rot):
                      [0, 0, 0, 1]])
 
 
+def rot_x_opk(rot):
+    rot = rot * (np.pi / 180.)
+    return np.array([[1, 0, 0],
+                     [0, np.cos(rot), -np.sin(rot)],
+                     [0, np.sin(rot), np.cos(rot)]])
+
+
 def scale(sf):
     return np.array([[sf, 0, 0, 0],
                      [0, sf, 0, 0],

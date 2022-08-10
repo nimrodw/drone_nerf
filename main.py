@@ -58,65 +58,82 @@ def main():
     centre = ((mins + maxs) / 2)
 
     # plot the centre of the photo array at the centre of the graph
-    xspan = (centre[0] - (size[0]/1.5), centre[0] + (size[0]/1.5))
-    yspan = (centre[1] - (size[1]/1.5), centre[1] + (size[1]/1.5))
+    xspan = (centre[0] - (size[0] / 1.5), centre[0] + (size[0] / 1.5))
+    yspan = (centre[1] - (size[1] / 1.5), centre[1] + (size[1] / 1.5))
 
     print("Centre: ", centre)
     print("Size: ", size)
     print("Xspan: ", xspan)
     print("yspan: ", yspan)
 
-    fig = plt.figure(figsize=(10, 7))
-    ax = plt.axes()
+
     # Creating plot
 
     xs = [x.down_angle.transformation_mat[0, 3] for x in imageGroups]
     ys = [x.down_angle.transformation_mat[1, 3] for x in imageGroups]
     zs = [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
 
+    # fig = plt.figure(figsize=(10, 7))
+    # ax = plt.axes()
+
     point_of_interest = (0, 0)
     circle1 = plt.Circle(point_of_interest, radius=50.0, color='r', fill=False)
 
     print("Creating 3D scatter graph from ", len(xs), "points")
-    ax.scatter(xs, ys, color='b')
-
-    ax.add_patch(circle1)
-
-    plt.xlim(xspan)
-    plt.ylim(yspan)
-    # ax.set_zlim(-1.5, 1.5)
-    plt.title("Drone Plots")
+    # ax.scatter(xs, ys, color='b')
+    #
+    # ax.add_patch(circle1)
+    #
+    # plt.xlim(xspan)
+    # plt.ylim(yspan)
+    # # ax.set_zlim(-1.5, 1.5)
+    # plt.title("Drone Plots")
     # plt.show()
 
-    x0s = []
-    y0s = []
-    z0s = []
+    pos = []
     ds = []
+    annots = []
     ii = 0
     for grp in imageGroups:
-        for image in grp.images:
-            if ii % 7 == 0:
-                x, y, z = image.get_pos()
-                x0s.append(x)
-                y0s.append(y)
-                z0s.append(z)
-                d = image.get_image_vector()
-                ds.append(d)
-            ii += 1
+        # for image in grp.images:
+        #     if ii % 7 == 0:
+        #         x, y, z = image.get_pos()
+        #         x0s.append(x)
+        #         y0s.append(y)
+        #         z0s.append(z)
+        #         d = image.get_image_vector()
+        #         ds.append(d)
+        #     ii += 1
+        if ii % 1 == 0:
+            img = grp.down_angle
+            x, y, z = img.get_pos()
+            pos.append((x, y, z))
+            d = img.get_image_vector()
+            ds.append(d)
+            annots.append(img.image_id)
+        ii += 1
+
+    pos = np.asarray(pos)
 
     print(np.asarray(ds).shape)
     ds = np.asarray(ds)
-    print(len(x0s))
+    print(len(pos))
     print(len(ds))
     fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.quiver(x0s, y0s, z0s, ds[:, 0], ds[:, 1], ds[:, 2])
-    # p = plt.Circle((0, 0), 100.0, fill=False)
+    ax = fig.add_subplot(projection='3d')
+    fig.set_figheight(15)
+    fig.set_figwidth(15)
+    pos = pos[:55]
+    ds = ds[:55]
+    ax.quiver(pos[:, 0], pos[:, 1], pos[:, 2], ds[:, 0], ds[:, 1], ds[:, 2])
+    for i in range(len(pos)):
+        ax.text(pos[i, 0], pos[i, 1], pos[i, 2], annots[i], (1, 0, 0))
+    # p = plt.Circle(point_of_interest, 50.0, fill=False)
     # ax.add_patch(p)
     # art3d.pathpatch_2d_to_3d(p, z=0, zdir="z")
     plt.xlim(-400, 400)
     plt.ylim(-400, 400)
-    ax.set_zlim(-10, 400)
+    ax.set_zlim(0, 400)
     plt.show()
 
 
