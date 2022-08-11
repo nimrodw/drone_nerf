@@ -95,16 +95,7 @@ def main():
     annots = []
     ii = 0
     for grp in imageGroups:
-        # for image in grp.images:
-        #     if ii % 7 == 0:
-        #         x, y, z = image.get_pos()
-        #         x0s.append(x)
-        #         y0s.append(y)
-        #         z0s.append(z)
-        #         d = image.get_image_vector()
-        #         ds.append(d)
-        #     ii += 1
-        if ii % 1 == 0:
+        if ii % 4 == 0:
             img = grp.down_angle
             x, y, z = img.get_pos()
             pos.append((x, y, z))
@@ -118,13 +109,14 @@ def main():
     print(np.asarray(ds).shape)
     ds = np.asarray(ds)
     print(len(pos))
-    print(len(ds))
+    # print(len(ds))
+    print(ds)
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     fig.set_figheight(15)
     fig.set_figwidth(15)
-    pos = pos[:55]
-    ds = ds[:55]
+    pos = pos
+    ds = ds
     ax.quiver(pos[:, 0], pos[:, 1], pos[:, 2], ds[:, 0], ds[:, 1], ds[:, 2])
     for i in range(len(pos)):
         ax.text(pos[i, 0], pos[i, 1], pos[i, 2], annots[i], (1, 0, 0))

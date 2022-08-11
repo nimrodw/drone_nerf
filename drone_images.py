@@ -55,35 +55,31 @@ class droneImage:
         return self.transformation_mat
 
     def get_image_vector(self):
-        t = 5
+        t = 50
         # equation of a circle: we need x,y,z and radius
         # cast a ray from the camera - r(t) = o + t*d (ray equals origin + length*vector)
         # x=x0+ta, y=y0+tb, z=z0+tc
-        o = self.get_pos()
-        o = np.array([[1.0, 0, 0, o[0]],
-                      [0, 1.0, 0, o[1]],
-                      [0, 0, 1.0, o[2]],
-                      [0, 0, 0, 1.0]])
         k, phi, w = self.get_rot()
-        rot_x = scripts.generate_transforms_json.rot_x(k)
-        rot_y = scripts.generate_transforms_json.rot_y(phi)
-        rot_z = scripts.generate_transforms_json.rot_z(w)
-        # w = w * (np.pi / 180.)
-        # phi = phi * (np.pi / 180.)
-        # k = k * (np.pi / 180.)
-        # rot_x = np.array([[1, 0, 0],
-        #                   [0, np.cos(w), -np.sin(w)],
-        #                   [0, np.sin(w), np.cos(w)]])
-        # rot_y = np.array([[np.cos(phi), 0, np.sin(phi)],
-        #                   [0, 1, 0],
-        #                   [-np.sin(phi), 0, np.cos(phi)]])
-        # rot_z = np.array([[np.cos(k), -np.sin(k), 0],
-        #                   [np.sin(k), np.cos(k), 0],
-        #                   [0, 0, 1]])
+
+        w = w * (np.pi / 180.)
+        phi = phi * (np.pi / 180.)
+        k = k * (np.pi / 180.)
+        rot_x = np.array([[1, 0, 0],
+                          [0, np.cos(w), -np.sin(w)],
+                          [0, np.sin(w), np.cos(w)]])
+        rot_y = np.array([[np.cos(phi), 0, np.sin(phi)],
+                          [0, 1, 0],
+                          [-np.sin(phi), 0, np.cos(phi)]])
+        rot_z = np.array([[np.cos(k), -np.sin(k), 0],
+                          [np.sin(k), np.cos(k), 0],
+                          [0, 0, 1]])
         rot_m = rot_x @ rot_y @ rot_z
         d = rot_m
+        # we multiply the rotation matrix by the direction the camera array is facing
+        # in this application, we can assume that the array faces down (negative on the z-axis)
+        d = d @ np.array([0, 0, -1])
         d_hat = d / np.linalg.norm(d)
-        d_hat = o + (t * d_hat)  # ray
+        d_hat = (t * d_hat)  # length * direction
         return d_hat
 
     def generate_transform_matrix(self, average_position, sf):
@@ -136,6 +132,11 @@ class droneImage:
         # xf = self.scale_matrix(1.0 / 550.0)
         xf = xf  # @ xf_rot
         self.transformation_mat = xf
+
+
+def vector_intersects_plane():
+    # does a given vector inersect a 2d object at x,y,z?
+    return False
 
 
 def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):
