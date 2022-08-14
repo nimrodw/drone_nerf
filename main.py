@@ -66,7 +66,6 @@ def main():
     print("Xspan: ", xspan)
     print("yspan: ", yspan)
 
-
     # Creating plot
 
     xs = [x.down_angle.transformation_mat[0, 3] for x in imageGroups]
@@ -76,8 +75,8 @@ def main():
     # fig = plt.figure(figsize=(10, 7))
     # ax = plt.axes()
 
-    point_of_interest = (0, 0)
-    circle1 = plt.Circle(point_of_interest, radius=50.0, color='r', fill=False)
+    area_of_interest = (0, 0)
+    circle1 = plt.Circle(area_of_interest, radius=50.0, color='r', fill=False)
 
     print("Creating 3D scatter graph from ", len(xs), "points")
     # ax.scatter(xs, ys, color='b')
@@ -89,28 +88,38 @@ def main():
     # # ax.set_zlim(-1.5, 1.5)
     # plt.title("Drone Plots")
     # plt.show()
-
+    drone_height = 200
     pos = []
     ds = []
     annots = []
     ii = 0
     for grp in imageGroups:
-        if ii % 4 == 0:
+        if ii % 1 == 0:
             img = grp.down_angle
             x, y, z = img.get_pos()
+            # z_surface
+            zs = z - drone_height
+            t = z - zs
             pos.append((x, y, z))
-            d = img.get_image_vector()
-            ds.append(d)
-            annots.append(img.image_id)
+            d = img.get_image_vector(t=t)
+            xs, ys = x + (t * d[0]), y + (t * d[1])
+
+            field_w = (cam.sensor_size * drone_height) / cam.focal_length
+            print("x0, y0: ", x, y, " x1, y1", xs, ys, " d: ", d, " field_w: ", field_w)
+            intersects = drone_images.circle_2d_intersects_circle_2d(xs, ys, 50, area_of_interest[0],
+                                                                     area_of_interest[1], 100.0)
+            ds.append(t*d)
+            if intersects:
+                annots.append(img.image_id)
+            else:
+                annots.append("")
         ii += 1
 
     pos = np.asarray(pos)
 
     print(np.asarray(ds).shape)
     ds = np.asarray(ds)
-    print(len(pos))
-    # print(len(ds))
-    print(ds)
+
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     fig.set_figheight(15)

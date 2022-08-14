@@ -54,11 +54,11 @@ class droneImage:
         self.transformation_mat = (sf @ self.transformation_mat)
         return self.transformation_mat
 
-    def get_image_vector(self):
-        t = 50
+    def get_image_vector(self, t=50):
         # equation of a circle: we need x,y,z and radius
         # cast a ray from the camera - r(t) = o + t*d (ray equals origin + length*vector)
         # x=x0+ta, y=y0+tb, z=z0+tc
+        # a, b, c is direction, t is length, x0, y0, z0 is the origin of the ray
         k, phi, w = self.get_rot()
 
         w = w * (np.pi / 180.)
@@ -79,7 +79,6 @@ class droneImage:
         # in this application, we can assume that the array faces down (negative on the z-axis)
         d = d @ np.array([0, 0, -1])
         d_hat = d / np.linalg.norm(d)
-        d_hat = (t * d_hat)  # length * direction
         return d_hat
 
     def generate_transform_matrix(self, average_position, sf):
@@ -134,8 +133,20 @@ class droneImage:
         self.transformation_mat = xf
 
 
-def vector_intersects_plane():
-    # does a given vector inersect a 2d object at x,y,z?
+def circle_2d_intersects_circle_2d(x1, y1, radius1, x2, y2, radius2):
+    # does a given vector intersect a 2d object at x,y,z?
+    # fig = plt.figure(figsize=(10, 7))
+    # ax = plt.axes()
+    # p1 = plt.Circle((x1, y1), radius1, fill=False)
+    # ax.add_patch(p1)
+    # p2 = plt.Circle((x2, y2), radius2, fill=False)
+    # ax.add_patch(p2)
+    # ax.scatter([x1, x2], [y1, y2], color='b')
+    # plt.title("Plot Overlap")
+    # plt.show()
+    dist = np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+    if dist <= radius1 + radius2:
+        return True
     return False
 
 
@@ -159,7 +170,8 @@ def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):
                           float(pg.find('Distortion/K3').text),
                           float(pg.find('Distortion/P1').text),
                           float(pg.find('Distortion/P2').text)]
-            camera = cam.Camera(fl, principal_point, 1500.0, 1000.0, distortion)
+            sensor_size = float(pg.find('SensorSize').text)
+            camera = cam.Camera(fl, sensor_size, principal_point, 1500.0, 1000.0, distortion)
             camera_unset = False
 
         pg_name = pg.find("Name").text
