@@ -133,6 +133,32 @@ class droneImage:
         self.transformation_mat = xf
 
 
+def area_of_intersection(x1, y1, r1, x2, y2, r2):
+    d = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    if d < r1 + r2:
+        a = r1 * r1
+        b = r2 * r2
+
+        x = (a - b + d * d) / (2 * d)
+        z = x * x
+        y = np.sqrt(a - z)
+        if d <= np.abs(r2 - r1):
+            return np.pi * min(a, b)
+        return a * np.arcsin(y / r1) + b * np.arcsin(y / r2) - y * (x + np.sqrt(z + b - a))
+    return 0
+
+
+def intersection_over_union(x1, y1, r1, x2, y2, r2):
+    d = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+    if d < r1 + r2:
+        area_1 = np.pi * r1**2
+        area_2 = np.pi * r2**2
+        aoi = area_of_intersection(x1, y1, r1, x2, y2, r2)
+        aou = area_1 + area_2 - aoi
+        return aoi / aou
+    return 0
+
+
 def circle_2d_intersects_circle_2d(x1, y1, radius1, x2, y2, radius2):
     # does a given vector intersect a 2d object at x,y,z?
     # fig = plt.figure(figsize=(10, 7))
@@ -144,7 +170,7 @@ def circle_2d_intersects_circle_2d(x1, y1, radius1, x2, y2, radius2):
     # ax.scatter([x1, x2], [y1, y2], color='b')
     # plt.title("Plot Overlap")
     # plt.show()
-    dist = np.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+    dist = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
     if dist <= radius1 + radius2:
         return True
     return False

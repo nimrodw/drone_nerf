@@ -1,6 +1,13 @@
+import glob
+import os
+import shutil
+
 import numpy as np
 import cv2
 import multiprocessing
+
+from mpl_toolkits.mplot3d import art3d
+
 import scripts.generate_transforms_json
 import drone_images
 import image_group
@@ -72,70 +79,81 @@ def main():
     ys = [x.down_angle.transformation_mat[1, 3] for x in imageGroups]
     zs = [x.down_angle.transformation_mat[2, 3] for x in imageGroups]
 
-    # fig = plt.figure(figsize=(10, 7))
-    # ax = plt.axes()
-
-    area_of_interest = (0, 0)
-    circle1 = plt.Circle(area_of_interest, radius=50.0, color='r', fill=False)
-
-    print("Creating 3D scatter graph from ", len(xs), "points")
-    # ax.scatter(xs, ys, color='b')
-    #
-    # ax.add_patch(circle1)
-    #
-    # plt.xlim(xspan)
-    # plt.ylim(yspan)
-    # # ax.set_zlim(-1.5, 1.5)
-    # plt.title("Drone Plots")
-    # plt.show()
-    drone_height = 200
-    pos = []
-    ds = []
-    annots = []
-    ii = 0
-    for grp in imageGroups:
-        if ii % 1 == 0:
-            img = grp.down_angle
-            x, y, z = img.get_pos()
-            # z_surface
-            zs = z - drone_height
-            t = z - zs
-            pos.append((x, y, z))
-            d = img.get_image_vector(t=t)
-            xs, ys = x + (t * d[0]), y + (t * d[1])
-
-            field_w = (cam.sensor_size * drone_height) / cam.focal_length
-            print("x0, y0: ", x, y, " x1, y1", xs, ys, " d: ", d, " field_w: ", field_w)
-            intersects = drone_images.circle_2d_intersects_circle_2d(xs, ys, 50, area_of_interest[0],
-                                                                     area_of_interest[1], 100.0)
-            ds.append(t*d)
-            if intersects:
-                annots.append(img.image_id)
-            else:
-                annots.append("")
-        ii += 1
-
-    pos = np.asarray(pos)
-
-    print(np.asarray(ds).shape)
-    ds = np.asarray(ds)
-
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
     fig.set_figheight(15)
     fig.set_figwidth(15)
-    pos = pos
-    ds = ds
-    ax.quiver(pos[:, 0], pos[:, 1], pos[:, 2], ds[:, 0], ds[:, 1], ds[:, 2])
-    for i in range(len(pos)):
-        ax.text(pos[i, 0], pos[i, 1], pos[i, 2], annots[i], (1, 0, 0))
-    # p = plt.Circle(point_of_interest, 50.0, fill=False)
-    # ax.add_patch(p)
-    # art3d.pathpatch_2d_to_3d(p, z=0, zdir="z")
-    plt.xlim(-400, 400)
-    plt.ylim(-400, 400)
-    ax.set_zlim(0, 400)
-    plt.show()
+
+    area_of_interest = (50, 50)
+    area_radius = 100.0
+
+    drone_height = 200
+    pos = []
+    ds = []
+    annots = []
+    # images that have been deemed to have a view of the area_of_interest that we would like to use
+    choose_images = []
+    ii = 0
+    for grp in imageGroups:
+        for img in grp.images:
+            x, y, z = img.get_pos()
+            # z_surface
+            zs = z - drone_height
+            t = z - zs
+
+            d = img.get_image_vector(t=t)
+            xs, ys = x + (t * d[0]), y + (t * d[1])
+
+            field_w = (cam.sensor_size * drone_height) / cam.focal_length
+            intersects = drone_images.circle_2d_intersects_circle_2d(xs, ys, field_w, area_of_interest[0],
+                                                                     area_of_interest[1], area_radius)
+            iou = drone_images.intersection_over_union(xs, ys, field_w, area_of_interest[0],
+                                                       area_of_interest[1], area_radius)
+            if intersects and iou > 0.35:
+                print("x0, y0: ", x, y, " x1, y1", xs, ys, " d: ", d, " field_w: ", field_w)
+                print("IoU: ", iou)
+                choose_images.append(img.image_path)
+                pos.append((x, y, z))
+                annots.append(img.image_id)
+                ds.append(t * d)
+                p = plt.Circle((xs, ys), field_w, fill=False)
+                ax.add_patch(p)
+                art3d.pathpatch_2d_to_3d(p, z=100, zdir="z")
+            else:
+                annots.append("")
+            ii += 1
+
+    print("Found ", len(choose_images), " images that can see the area of interest")
+    if len(choose_images) > 15:
+        with open("data/dst/image_paths.txt", "w") as file:
+            file.truncate(0)
+            existing_files = glob.glob('data/dst/images/*.JPG')
+            for f in existing_files:
+                try:
+                    os.remove(f)
+                except OSError as e:
+                    print("Error : %s: %s" % (f, e.strerror))
+            for path in choose_images:
+                file.write(path + "\n")
+                shutil.copy(path, "data/dst/images/")
+
+        pos = np.asarray(pos)
+
+        print(np.asarray(ds).shape)
+        ds = np.asarray(ds)
+
+        ax.quiver(pos[:, 0], pos[:, 1], pos[:, 2], ds[:, 0], ds[:, 1], ds[:, 2])
+        for i in range(pos.shape[0]):
+            ax.text(pos[i, 0], pos[i, 1], pos[i, 2], annots[i], (1, 0, 0))
+        p = plt.Circle(area_of_interest, area_radius, fill=False)
+        ax.add_patch(p)
+        art3d.pathpatch_2d_to_3d(p, z=100, zdir="z")
+        plt.xlim(-400, 400)
+        plt.ylim(-400, 400)
+        ax.set_zlim(0, 400)
+        plt.show()
+    else:
+        print("Not enough images!")
 
 
 if __name__ == '__main__':
