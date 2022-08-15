@@ -13,7 +13,7 @@ import mpl_toolkits.mplot3d.art3d as art3d
 
 class droneImage:
 
-    def __init__(self, image_path, image_id, translation, rotation):
+    def __init__(self, image_path, image_id, translation, rotation, camera):
         # load the opencv image
         # load associated image params xyz + rot
         self.sharpness = None
@@ -23,6 +23,7 @@ class droneImage:
         self.translation = translation
         self.rotation = rotation  # k, phi, w
         self.transformation_mat = np.eye(4)
+        self.camera = camera
 
     def get_pos(self):
         return self.transformation_mat[:3, 3]
@@ -187,18 +188,18 @@ def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):
     print("Loading Image Data from XML")
     camera_unset = True
     camera = None
+    cameras = []
     for pg in photogroups:
-        if camera_unset:
-            fl = float(pg.find('FocalLength').text)
-            principal_point = [float(pg.find('PrincipalPoint/x').text), float(pg.find('PrincipalPoint/y').text)]
-            distortion = [float(pg.find('Distortion/K1').text),
-                          float(pg.find('Distortion/K2').text),
-                          float(pg.find('Distortion/K3').text),
-                          float(pg.find('Distortion/P1').text),
-                          float(pg.find('Distortion/P2').text)]
-            sensor_size = float(pg.find('SensorSize').text)
-            camera = cam.Camera(fl, sensor_size, principal_point, 1500.0, 1000.0, distortion)
-            camera_unset = False
+        fl = float(pg.find('FocalLength').text)
+        principal_point = [float(pg.find('PrincipalPoint/x').text), float(pg.find('PrincipalPoint/y').text)]
+        distortion = [float(pg.find('Distortion/K1').text),
+                      float(pg.find('Distortion/K2').text),
+                      float(pg.find('Distortion/K3').text),
+                      float(pg.find('Distortion/P1').text),
+                      float(pg.find('Distortion/P2').text)]
+        sensor_size = float(pg.find('SensorSize').text)
+        camera = cam.Camera(fl, sensor_size, principal_point, 1500.0, 1000.0, distortion)
+        cameras.append(camera)
 
         pg_name = pg.find("Name").text
         photos = pg.findall("Photo")
@@ -219,9 +220,9 @@ def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):
             k = float(rotation.find('Kappa').text)
             rotations.append([k, phi, omega])
             rots.append([k, phi, omega])
-            image = droneImage(image_path, id, [x, y, z], [k, phi, omega])
+            image = droneImage(image_path, id, [x, y, z], [k, phi, omega], camera)
             droneImages.append(image)
     positions = np.asarray(positions)
     rotations = np.asarray(rotations)
-
-    return droneImages, camera, positions, rotations
+    print("Found ", len(cameras), " Cameras")
+    return droneImages, cameras, positions, rotations
