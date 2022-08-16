@@ -1,7 +1,7 @@
 import glob
 import os
 import shutil
-import logging
+import pandas as pd
 
 import numpy as np
 import multiprocessing
@@ -84,16 +84,16 @@ def main():
     fig.set_figwidth(15)
 
     area_of_interest = (50, 50)
-    area_radius = 200.0
+    aoi_vector = np.array([0, 0, 1])
+    area_radius = 150.0
 
     drone_height = 200
     pos = []
     ds = []
     annots = []
     # images that have been deemed to have a view of the area_of_interest that we would like to use
+    all_images = []  # (intersects, iou, theta, compound, image, t)
     choose_images = []
-    ious = []
-    ii = 0
     for grp in imageGroups:
         for img in grp.images:
             x, y, z = img.get_pos()
@@ -110,27 +110,52 @@ def main():
                                                                      area_of_interest[1], area_radius)
             iou = drone_images.intersection_over_union(xs, ys, field_w, area_of_interest[0],
                                                        area_of_interest[1], area_radius)
-            if intersects:
-                # print("x0, y0: ", x, y, " x1, y1", xs, ys, " d: ", d, " field_w: ", field_w)
-                # print("IoU: ", iou)
-                ious.append(iou)
-                if iou > 0.3:
-                    choose_images.append(img.image_path)
-                    pos.append((x, y, z))
-                    annots.append(img.image_id)
-                    ds.append(t * d)
-                    # p = plt.Circle((xs, ys), field_w, fill=False)
-                    # ax.add_patch(p)
-                    # art3d.pathpatch_2d_to_3d(p, z=100, zdir="z")
-            else:
-                annots.append("")
-            ii += 1
+
+            theta = np.arccos(np.clip(np.dot(d, aoi_vector), -1.0, 1.0)) * 180 / np.pi
+            theta = 180.0 - theta
+            # angle here - 180 is vertical
+
+            all_images.append((intersects, iou, theta, img, d))
+
+    df_images = pd.DataFrame(all_images, columns=['Intersects', 'IOU', 'theta', 'image', 'vector'])
+    intersecting = df_images[df_images["Intersects"] != 0]
+    intersecting = intersecting.reset_index()
+    # min max normalisation on the angles to get between 1 and 0
+    intersecting['theta'] = (intersecting['theta'] - intersecting['theta'].min()) / (
+                intersecting['theta'].max() - intersecting['theta'].min())
+    intersecting['compound'] = (1.0 + intersecting['theta']) * intersecting['IOU']
+    print(intersecting['compound'].describe())
+    # print(intersecting['theta'].describe())
+    # print(intersecting['IOU'].describe())
+    ious = intersecting['IOU']
+    angles = intersecting['theta']
+    compounds = intersecting['compound']
+    print("There are ", intersecting.shape[0], " intersecting images")
+
     ious = np.asarray(ious)
+    angles = np.asarray(angles)
+    print("Mean compounds: ", np.mean(compounds))
+    print("Max Min median: ", np.max(compounds), np.min(compounds), np.median(compounds))
+    print("Mean angles: ", np.mean(angles))
+    print("Max Min median: ", np.max(angles), np.min(angles), np.median(angles))
     print("Mean IOU: ", np.mean(ious))
     print("Median IOU: ", np.median(ious))
     print("Max min: ", np.max(ious), " ", np.min(ious))
     print("STD: ", np.std(ious))
+    ii = 0
+    for index, row in intersecting.iterrows():
+        x, y, z = row['image'].get_pos()
+        path, theta, d, iou, comp = row['image'].image_path, row['theta'], row['vector'], row['IOU'], row['compound']
+        # print(theta, iou, comp)
+        if comp > intersecting['compound'].quantile(0.9) and ii % 2 == 0:
+            choose_images.append(path)
+            pos.append((x, y, z))
+            annots.append(str(theta))
+            ds.append(t * d)
+        ii += 1
+
     print("Found ", len(choose_images), " images that can see the area of interest")
+
     if len(choose_images) > 5:
         with open("data/dst/image_paths.txt", "w") as file:
             file.truncate(0)

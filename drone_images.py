@@ -142,7 +142,7 @@ def area_of_intersection(x1, y1, r1, x2, y2, r2):
 
         x = (a - b + d * d) / (2 * d)
         z = x * x
-        y = np.sqrt(a - z)
+        y = np.sqrt(np.abs(a - z))
         if d <= np.abs(r2 - r1):
             return np.pi * min(a, b)
         return a * np.arcsin(y / r1) + b * np.arcsin(y / r2) - y * (x + np.sqrt(z + b - a))
@@ -162,15 +162,6 @@ def intersection_over_union(x1, y1, r1, x2, y2, r2):
 
 def circle_2d_intersects_circle_2d(x1, y1, radius1, x2, y2, radius2):
     # does a given vector intersect a 2d object at x,y,z?
-    # fig = plt.figure(figsize=(10, 7))
-    # ax = plt.axes()
-    # p1 = plt.Circle((x1, y1), radius1, fill=False)
-    # ax.add_patch(p1)
-    # p2 = plt.Circle((x2, y2), radius2, fill=False)
-    # ax.add_patch(p2)
-    # ax.scatter([x1, x2], [y1, y2], color='b')
-    # plt.title("Plot Overlap")
-    # plt.show()
     dist = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
     if dist <= radius1 + radius2:
         return True
