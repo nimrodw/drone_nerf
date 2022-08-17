@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 import multiprocessing
 from mpl_toolkits.mplot3d import art3d
+from tabulate import tabulate
 
 import drone_images
 import image_group
@@ -83,9 +84,9 @@ def main():
     fig.set_figheight(15)
     fig.set_figwidth(15)
 
-    area_of_interest = (50, 50)
+    area_of_interest = (65, 20)
     aoi_vector = np.array([0, 0, 1])
-    area_radius = 150.0
+    area_radius = 75.0
 
     drone_height = 200
     pos = []
@@ -114,17 +115,28 @@ def main():
             theta = np.arccos(np.clip(np.dot(d, aoi_vector), -1.0, 1.0)) * 180 / np.pi
             theta = 180.0 - theta
             # angle here - 180 is vertical
+            direction = ""
+            if img is grp.front_angle:
+                direction = "front"
+            elif img is grp.back_angle:
+                direction = "back"
+            elif img is grp.left_angle:
+                direction = "left"
+            elif img is grp.right_angle:
+                direction = "right"
+            elif img is grp.down_angle:
+                direction = "down"
+            all_images.append((intersects, iou, theta, img, d, direction))
 
-            all_images.append((intersects, iou, theta, img, d))
-
-    df_images = pd.DataFrame(all_images, columns=['Intersects', 'IOU', 'theta', 'image', 'vector'])
+    df_images = pd.DataFrame(all_images, columns=['Intersects', 'IOU', 'theta', 'image', 'vector', 'Direction'])
     intersecting = df_images[df_images["Intersects"] != 0]
     intersecting = intersecting.reset_index()
+
     # min max normalisation on the angles to get between 1 and 0
     intersecting['theta'] = (intersecting['theta'] - intersecting['theta'].min()) / (
                 intersecting['theta'].max() - intersecting['theta'].min())
-    intersecting['compound'] = (1.0 + intersecting['theta']) * intersecting['IOU']
-    print(intersecting['compound'].describe())
+    intersecting['compound'] = (intersecting['theta']) * intersecting['IOU']
+
     # print(intersecting['theta'].describe())
     # print(intersecting['IOU'].describe())
     ious = intersecting['IOU']
@@ -143,14 +155,32 @@ def main():
     print("Max min: ", np.max(ious), " ", np.min(ious))
     print("STD: ", np.std(ious))
     ii = 0
+    # get "Down" angles
+    downs_pos = []
+    downs_ds = []
+    # print(tabulate(intersecting.loc[intersecting['Direction'] == 'down'], headers="keys", tablefmt="psql"))
+    print(intersecting.loc[intersecting['Direction'] == 'down']['IOU'])
     for index, row in intersecting.iterrows():
         x, y, z = row['image'].get_pos()
-        path, theta, d, iou, comp = row['image'].image_path, row['theta'], row['vector'], row['IOU'], row['compound']
+        path, theta, d, iou, comp, direction = row['image'].image_path, row['theta'], row['vector'], row['IOU'], row['compound'], row['Direction']
         # print(theta, iou, comp)
-        if comp > intersecting['compound'].quantile(0.9) and ii % 2 == 0:
+        if iou > intersecting.loc[intersecting['Direction'] == 'down']['IOU'].quantile(0.9) and ii % 2 == 0:
+            choose_images.append(path)
+            downs_pos.append((x, y, z))
+            annots.append(direction)
+            downs_ds.append(t * d)
+        ii += 1
+    print("Choose ", len(downs_pos), " from down angles")
+    intersecting['compound'] = (intersecting['theta']) * (intersecting['IOU'])
+    for index, row in intersecting.iterrows():
+        x, y, z = row['image'].get_pos()
+        path, theta, d, iou, comp, direction = row['image'].image_path, row['theta'], row['vector'], row['IOU'], row['compound'], row['Direction']
+        # print(theta, iou, comp)
+        if iou > intersecting['IOU'].quantile(0.80) and theta > intersecting['theta'].quantile(0.80) \
+                and path not in choose_images:
             choose_images.append(path)
             pos.append((x, y, z))
-            annots.append(str(theta))
+            annots.append(direction)
             ds.append(t * d)
         ii += 1
 
@@ -172,11 +202,12 @@ def main():
     else:
         print("Not enough images!")
     pos = np.asarray(pos)
-
+    downs_pos = np.asarray(downs_pos)
     print(np.asarray(ds).shape)
     ds = np.asarray(ds)
-
-    ax.quiver(pos[:, 0], pos[:, 1], pos[:, 2], ds[:, 0], ds[:, 1], ds[:, 2])
+    downs_ds = np.asarray(downs_ds)
+    ax.quiver(downs_pos[:, 0], downs_pos[:, 1], downs_pos[:, 2], downs_ds[:, 0], downs_ds[:, 1], downs_ds[:, 2], color="b")
+    ax.quiver(pos[:, 0], pos[:, 1], pos[:, 2], ds[:, 0], ds[:, 1], ds[:, 2], color="r")
     for i in range(pos.shape[0]):
         ax.text(pos[i, 0], pos[i, 1], pos[i, 2], annots[i], (1, 0, 0))
     p = plt.Circle(area_of_interest, area_radius, fill=False)
