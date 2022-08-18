@@ -24,6 +24,7 @@ class droneImage:
         self.rotation = rotation  # k, phi, w
         self.transformation_mat = np.eye(4)
         self.camera = camera
+        self.direction = "NULL"
 
     def get_pos(self):
         return self.transformation_mat[:3, 3]
