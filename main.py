@@ -152,22 +152,7 @@ def main():
     # get "Down" angles
     downs_pos = []
     downs_ds = []
-    # print(tabulate(intersecting.loc[intersecting['Direction'] == 'down'], headers="keys", tablefmt="psql"))
-    # print(tabulate(intersecting.loc[intersecting['Direction'] == 'down'], headers="keys", tablefmt="psql"))
-    # print(intersecting.loc[intersecting['Direction'] == 'down']['IOU'].quantile(0.8))
-    # for index, row in intersecting.iterrows():
-    #     x, y, z = row['image'].get_pos()
-    #     path, theta, d, iou, comp, direction = row['image'].image_path, row['theta'], row['vector'], row['IOU'], row['compound'], row['Direction']
-    #     # print(theta, iou, comp)
-    #     if iou > intersecting.loc[intersecting['Direction'] == 'down']['IOU'].quantile(0.72) and direction == "down" \
-    #             and ii % 4 == 0:
-    #         # print(path)
-    #         choose_images.append(path)
-    #         downs_pos.append((x, y, z))
-    #         annots.append(direction)
-    #         downs_ds.append(t * d)
-    #     ii += 1
-    print("Choose ", len(downs_pos), " from down angles")
+
     intersecting['compound'] = (intersecting['theta']) * (intersecting['IOU'])
     for index, row in intersecting.iterrows():
         x, y, z = row['image'].get_pos()

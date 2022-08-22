@@ -199,7 +199,7 @@ def produce_drone_image_list(xml_path="data/Xml/200_AT.xml"):
         for photo in photos:
             id = int(photo.find('Id').text)
             image_path = photo.find('ImagePath').text
-            image_path = image_path.replace("LMY_PREFIX_PATH", "data/downsampled/_025")
+            image_path = image_path.replace("LMY_PREFIX_PATH", "data/Pic")
             center = photo.find("Pose/Center")
             x = float(center.find('x').text)
             y = float(center.find('y').text)

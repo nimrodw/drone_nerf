@@ -62,8 +62,8 @@ circle1 = plt.Circle((0, 0), 50.0, color='r', fill=False)
 
 
 plt.plot(xs, ys, 'r+')
-ax.add_patch(circle1)
-plt.xlim(-250, 250)
-plt.ylim(-250, 250)
+# ax.add_patch(circle1)
+# plt.xlim(-250, 250)
+# plt.ylim(-250, 250)
 fig.suptitle('Camera Positions of Photos (Photogroup 0)', fontweight ="bold")
 plt.show()
